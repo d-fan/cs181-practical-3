@@ -47,7 +47,7 @@ atexit.register(save_cache)
 
 # Pass in an artist name (string) and a list of information to query (list of strings). This will return a dictionary of the response,
 # e.g. echonest.get('weezer') will return a dict with 
-def get(name, buckets=avail_buckets):
+def get(name, buckets=avail_buckets, cache = True):
 	global artist_data
 	name = name.lower()
 	print name in artist_data
@@ -55,19 +55,17 @@ def get(name, buckets=avail_buckets):
 	if name in artist_data and all([b in artist_data[name] or (b+'s') in artist_data[name] for b in buckets]):
 		print "using cached value"
 		return artist_data[name]
-	
-	# Construct GET request
-	parts = [
-		'http://developer.echonest.com/api/v4/artist/profile',
-		'?name=%s' % name,
-		'&api_key=SBUU9O8LMHSWS8Y9B',
-		"".join(["&bucket=%s" % b for b in buckets])
-	]
-	url = "".join(parts)
-	print url
+
+	payload = {
+	  "api_key": "SBUU9O8LMHSWS8Y9B",
+		"name": name,
+		"bucket": buckets
+	}
 
 	# Retrieve and add to cache
-	result = requests.get(url)
+	result = requests.get('http://developer.echonest.com/api/v4/artist/profile', params=payload)
+	print result.url
 	artist = result.json()['response']['artist']
-	artist_data.update({artist['name'].lower(): artist})
+	if cache:
+		artist_data.update({artist['name'].lower(): artist})
 	return artist
