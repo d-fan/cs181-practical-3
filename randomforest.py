@@ -1,8 +1,11 @@
 import sys
 import csv
 import pickle
+import hickle as hkl
 import numpy as np
 from numpy import array
+from sklearn.ensemble import RandomForestClassifier
+
 
 # Predict via random forests.
 def main(load=False):
@@ -32,49 +35,58 @@ def main(load=False):
                 # put artist in a list
                 if not artist in artists:
                     artists.append(artist)
-        print "done parsing training data."
+        print "done parsing training data!"
+
+        # number of data
+        N = len(train_data)
+        d = len(artists)
+        # for faster access to artists
+        artist_index = {v: k for k, v in dict(enumerate(artists)).iteritems()}
+        # for faster access to vectors
+        user_index   = {}
+
+        # vectorize (make into matrix)
+        print "vectorizing training data..."
+        X_train = []
+        index = 0
+        for user in train_data.keys():
+            prefs = train_data[user]
+            vec = [0]*len(artists)
+            for artist, plays in prefs.iteritems():
+                vec[artist_index[artist]] = plays
+            X_train.append(vec)
+            # for easy access to the vector later
+            user_index[user] = index
+            index += 1
+
+        # change to np array for filtering later
+        X_train = array(X_train)
+        print "done vectoring training data!"
 
         # TODO PICKLE LATER IN THE PROCESS
+        print "saving data..."
+        with open('user_index', "w") as out:
+            pickle.dump(user_index, out)
         with open('X_train', "w") as out:
-            pickle.dump(train_data, out)
+            hkl.dump(X_train, out)
         with open('artists', "w") as out:
             pickle.dump(artists, out)
+        print "done saving data!"
     else:
         print "loading previous training data..."
+        with open('user_index', "r") as out:
+            user_index = pickle.load(out)
         with open('X_train', "r") as out:
-            train_data = pickle.load(out)
+            X_train = hkl.load(out)
         with open('artists', "r") as out:
             artists    = pickle.load(out)
+        print "done loading prev training data!"
 
-
-    # number of data
-    N = len(train_data)
-    d = len(artists)
-    # for faster access to artists
-    artist_index = {v: k for k, v in dict(enumerate(artists)).iteritems()}
-
-    # vectorize (make into matrix)
-    print "vectorizing training data..."
-    X_train = []
-    index = 0
-    for user in train_data.keys():
-        prefs = train_data[user]
-        vec = [0]*len(artists)
-        for artist, plays in prefs.iteritems():
-            vec[artist_index[artist]] = plays
-        X_train.append(vec)
-        # for easy access to the vector later
-        train_data['index'] = index
-        index += 1
-
-    # change to np array for filtering later
-    X_train = array(X_train)
-    print "done vectoring training data."
 
     print "training the forest..."
     # create a random forest for every artist (everybody cry)
     forests = [RandomForestClassifier(n_estimators = num_trees) for artist in artists]
-    for ind in xrange(artists):
+    for ind in xrange(len(artists)):
         # filter for users who listened to this artist
         arr = X_train[X_train[:, ind]!= 0]
         # target vector
